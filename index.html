@@ -44,7 +44,7 @@ input,select,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radiu
 <div class="row"><div class="small" onclick="go('money')">⬇ دریافت وجه</div><div class="small" onclick="go('money')">⬆ پرداخت وجه</div></div>
 <input placeholder="🔍 جستجو در همه..." oninput="searchAll(this.value)"><div id="searchRes"></div>
 <div class="card"><b>📊 نمودار فروش ۷ روز</b><div style="height:16px;background:#0E7C7B;border-radius:6px;margin:6px 0;width:30%"></div><div style="height:16px;background:#0E7C7B;border-radius:6px;margin:6px 0;width:60%"></div><div style="height:16px;background:#0E7C7B;border-radius:6px;margin:6px 0;width:85%"></div></div>
-<p style="text-align:center;color:#888;font-size:12px">حسابانه نسخه ۱.۷ - VPCDR</p></section>
+<p style="text-align:center;color:#888;font-size:12px">حسابانه نسخه ۱.۸ - VPCDR</p></section>
 
 <section id="s-invoice" class="hidden"><h3>🧾 فاکتورها</h3>
 <div class="sub"><button id="tabSell" class="on" onclick="switchInv('sell')">فاکتور فروش</button><button id="tabBuy" onclick="switchInv('buy')">فاکتور خرید</button><button id="tabArc" onclick="switchInv('arc')">📂 بایگانی فاکتورها</button></div><div id="boxArc" class="hidden"><h4>📂 فاکتورهای وارد شده - طبقه‌بندی سال و ماه شمسی</h4><div style="background:#FFF8E1;padding:10px;border-radius:10px">شماره‌گذاری از <b>۲۰۰</b> شروع می‌شود و پشت سر هم ادامه دارد. فاکتور بعدی: <b id="nextInvNo">۲۰۰</b></div><div id="arcList"></div></div>
@@ -130,6 +130,26 @@ function jalaliParts(dateStr){
   try{ let d=new Date(dateStr); let fmt=new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'long',day:'numeric'}); let parts=fmt.formatToParts(d); let y=parts.find(x=>x.type==='year')?.value||''; let m=parts.find(x=>x.type==='month')?.value||''; let day=parts.find(x=>x.type==='day')?.value||''; return {year:y, month:m, day:day, label: y+' - '+m}; }catch(e){ return {year:'-',month:'-',day:'-',label:'-'}; }
 }
 function nextInvoiceNo(){ return 200 + (DB.invoices?DB.invoices.length:0); }
+function editInvoice(i){
+  let inv=DB.invoices[i]; if(!inv) return;
+  // Load into sell form
+  switchInv('sell'); go('invoice');
+  setTimeout(()=>{
+    document.getElementById('itemName').value=inv.name||'';
+    document.getElementById('itemPrice').value=inv.price||'';
+    document.getElementById('disc').value=inv.discRaw||'';
+    document.getElementById('tax').value=inv.taxRaw ?? 10;
+    // Remove old one, user saves edited version - or keep and update on save
+    // Mark as editing
+    window._editInvIdx=i;
+    document.querySelector('#boxSell .btn2').textContent='💾 ذخیره تغییرات فاکتور';
+    toast('حالت ویرایش فاکتور '+inv.no+' - تغییرات را بزن و ذخیره کن');
+  },80);
+}
+function delInvoice(i){
+  if(!confirm('فاکتور '+DB.invoices[i].no+' حذف شود؟')) return;
+  DB.invoices.splice(i,1); save(); renderAll(); toast('فاکتور حذف شد');
+}
 function renderArchive(){
   let nextEl=document.getElementById('nextInvNo'); if(nextEl) nextEl.textContent=nextInvoiceNo();
   let box=document.getElementById('arcList'); if(!box) return;
@@ -146,7 +166,7 @@ function renderArchive(){
   Object.values(groups).forEach(g=>{
     html+=`<div class="card" style="border-right:4px solid #C9A86A"><b>📅 سال ${g.year} - ماه ${g.month}</b> <span style="background:#E8F5E9;padding:2px 8px;border-radius:10px;font-size:11px">${g.items.length} فاکتور</span>`;
     g.items.forEach(inv=>{
-      html+=`<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #eee;padding:8px 0"><div><b>فاکتور #${inv.no||200}</b> - ${inv.name} - ${fmt(inv.price)}<br><small>${jalaliParts(inv.date).day} ${g.month} ${g.year} | مشتری: ${inv.customer||'-'}</small></div><div><button class="btnSmall" onclick="showInvoiceCard(${inv.idx})">🖼 عکس</button><button class="btnSmall" onclick="showInvoiceCard(${inv.idx});setTimeout(()=>window.print(),300)">🖨 چاپ</button></div></div>`;
+      html+=`<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #eee;padding:8px 0"><div><b>فاکتور #${inv.no||200}</b> - ${inv.name} - ${fmt(inv.price)}<br><small>${jalaliParts(inv.date).day} ${g.month} ${g.year} | مشتری: ${inv.customer||'-'}</small></div><div><button class="btnSmall" onclick="showInvoiceCard(${inv.idx})">🖼 عکس</button><button class="btnSmall" onclick="showInvoiceCard(${inv.idx});setTimeout(()=>window.print(),300)">🖨 چاپ</button><button class="btnSmall" onclick="editInvoice(${inv.idx})">✏ ویرایش</button><button class="btnSmall" onclick="delInvoice(${inv.idx})">🗑 حذف</button></div></div>`;
     });
     html+='</div>';
   });
@@ -156,7 +176,8 @@ function showInvoiceCard(i){
   let inv=DB.invoices[i]; if(!inv) return;
   let p=DB.profile; let jp=jalaliParts(inv.date||new Date().toISOString());
   let discAmt = inv.discAmt||0; let taxAmt = inv.taxAmt||0;
-  openCard('🧾 فاکتور #'+(inv.no||200), {name:'فاکتور فروش #'+(inv.no||200), owner:p.store, mobile:p.mobile, tel:p.tel, addr:p.addr, card:p.card, sheba:p.sheba, national:p.national, eco:p.eco, email:p.email, type:p.type, logo:document.getElementById('sLogoPrev')?.src});
+  openCard('🧾 فاکتور #'+(inv.no||200), {kind:'invoice', name:'فاکتور فروش #'+(inv.no||200), owner:p.store, mobile:p.mobile, tel:p.tel, addr:p.addr, card:p.card, sheba:p.sheba, national:p.national, eco:p.eco, email:p.email, type:p.type, invNo:inv.no, date:jp.day+' '+jp.month+' '+jp.year, customer:inv.customer||'-', item:inv.name||'', price:inv.base||inv.price, disc:inv.discAmt||0, tax:inv.taxAmt?Math.round((inv.taxAmt/(inv.base||inv.price))*100):0, total:inv.price, logo:document.getElementById('sLogoPrev')?.src, person:document.getElementById('sPersonPrev')?.src, stamp:document.getElementById('sStampPrev')?.src});
+  currentCardData = {kind:'invoice', name:'فاکتور فروش #'+(inv.no||200), owner:p.store, mobile:p.mobile, tel:p.tel, addr:p.addr, card:p.card, sheba:p.sheba, national:p.national, eco:p.eco, email:p.email, type:p.type, invNo:inv.no, date:jp.day+' '+jp.month+' '+jp.year, customer:inv.customer||'-', item:inv.name||'', price:inv.base||inv.price, disc:inv.discAmt||0, tax:inv.taxAmt?Math.round((inv.taxAmt/(inv.base||inv.price))*100):0, total:inv.price, logo:document.getElementById('sLogoPrev')?.src, person:document.getElementById('sPersonPrev')?.src, stamp:document.getElementById('sStampPrev')?.src};
   // Override card content with invoice details, same beautiful style
   document.getElementById('cardViewBox').innerHTML = `<div class="cardView" id="printCard" style="background:linear-gradient(135deg,#0F2A4D,#0E7C7B)">
     <div style="display:flex;justify-content:space-between"><div><div class="cvName">${p.store}</div><div style="color:#DCE6F2">${p.type||'بازرگانی'} • حسابانه</div></div><div style="text-align:left"><b style="color:#C9A86A;font-size:20px">فاکتور #${inv.no||200}</b><br><small>${jp.day} ${jp.month} ${jp.year}</small></div></div>
@@ -172,7 +193,7 @@ function saveInvoice(){let n=document.getElementById('itemName').value.trim(),p=
     let base=p; let d=Number(document.getElementById('disc').value||0); let tx=Number(document.getElementById('tax').value||10);
     let discAmt=document.getElementById('discType').value==='percent'?base*d/100:d; let after=base-discAmt; let taxAmt=after*tx/100; let total=after+taxAmt;
     let no=nextInvoiceNo(); let cust=document.getElementById('invCust')?.value||'-';
-    DB.invoices.push({name:n,price:total,base:base,discAmt:discAmt,taxAmt:taxAmt,no:no,customer:cust,date:new Date().toISOString()});
+    if(window._editInvIdx!=null && window._editInvIdx>=0 && DB.invoices[window._editInvIdx]){ let oldNo=DB.invoices[window._editInvIdx].no; let oldDate=DB.invoices[window._editInvIdx].date; DB.invoices[window._editInvIdx]={name:n,price:total,base:base,discAmt:discAmt,taxAmt:taxAmt,no:oldNo,customer:cust,date:oldDate}; window._editInvIdx=null; document.querySelector('#boxSell .btn2').textContent='ثبت فاکتور فروش'; toast('فاکتور #'+oldNo+' ویرایش شد ✅'); } else { DB.invoices.push({name:n,price:total,base:base,discAmt:discAmt,taxAmt:taxAmt,no:no,customer:cust,date:new Date().toISOString()}); }
     if(!DB.products.find(x=>x.name===n)){DB.products.push({name:n,price:total,type:'کالا'});toast('فاکتور #'+no+' ثبت شد + کالا اضافه شد');}else toast('فاکتور #'+no+' ثبت شد');
     save();renderAll();renderArchive();}
     
@@ -217,7 +238,8 @@ function downloadCard(){
   // Load the 3 images first, then paint - so nothing breaks
   function loadImg(src){return new Promise(res=>{if(!src||src.length<20){res(null);return;} let im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src;});}
   Promise.all([loadImg(d.logo), loadImg(d.person), loadImg(d.stamp), loadImg('logo.png')]).then(([logoIm, personIm, stampIm, appLogo])=>{
-    let W=1080, H=1380;
+    let isInv = (d.kind==='invoice');
+    let W=1080, H=isInv?1620:1380;
     let cv=document.createElement('canvas'); cv.width=W; cv.height=H; let ctx=cv.getContext('2d');
     // Background - exact luxe gradient
     let grad=ctx.createLinearGradient(0,0,W,H); grad.addColorStop(0,'#0F2A4D'); grad.addColorStop(0.55,'#143A5A'); grad.addColorStop(1,'#0E7C7B'); ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
@@ -246,10 +268,14 @@ function downloadCard(){
     if(d.ig) rows.push(['اینستاگرام', d.ig]);
     // Invoice extra
     if(d.invNo) rows.push(['شماره فاکتور', String(d.invNo)]);
+    if(d.customer) rows.push(['مشتری', d.customer]);
+    if(d.item) rows.push(['کالا / شرح', d.item]);
+    if(d.date) rows.push(['تاریخ', d.date]);
     if(d.date) rows.push(['تاریخ', d.date]);
     if(d.customer) rows.push(['مشتری', d.customer]);
     if(d.item) rows.push(['کالا', d.item]);
-    if(d.total) rows.push(['مبلغ نهایی', d.total]);
+    if(d.price) rows.push(['مبلغ کالا', fmt(d.price)]);
+    if(d.total) rows.push(['مبلغ نهایی', fmt(d.total)]);
     ctx.textAlign='right';
     let y=320;
     rows.forEach(([label, val])=>{
@@ -263,8 +289,18 @@ function downloadCard(){
       ctx.fillText(v, W-90-180, y);
       y+=72;
     });
+    if(isInv){
+      // Big gold total box - makes invoice beautiful and clear
+      ctx.fillStyle='#C9A86A'; ctx.beginPath(); ctx.roundRect(60, y+10, W-120, 90, 18); ctx.fill();
+      ctx.fillStyle='#0F2A4D'; ctx.font='900 36px Tahoma, sans-serif'; ctx.textAlign='center';
+      ctx.fillText('مبلغ نهایی: ' + (d.total?fmt(d.total):'-'), W/2, y+68);
+      y+=110;
+      ctx.fillStyle='#fff'; ctx.font='28px Tahoma, sans-serif'; ctx.textAlign='right';
+      if(d.disc) { ctx.fillText('تخفیف: ' + fmt(d.disc), W-90, y); y+=45; }
+      if(d.tax!=null) { ctx.fillText('مالیات: ' + d.tax + '%', W-90, y); y+=45; }
+    }
     // 3 images at bottom - always in 3 equal boxes, no broken icons
-    let boxY = H-360, boxW=(W-120-40)/3, boxH=260;
+    let boxY = isInv ? Math.min(y+20, H-360) : H-360, boxW=(W-120-40)/3, boxH=260;
     let titles=['لوگو','عکس پرسنلی','مهر'];
     let imgs=[logoIm, personIm, stampIm];
     for(let i=0;i<3;i++){
