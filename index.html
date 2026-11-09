@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>حسابانه - ساخته شده توسط VPCDR</title>
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:Tahoma;background:#F5F7FA;color:#1A2332}
+header{background:#0F2A4D;color:#fff;padding:22px 16px 14px;text-align:center;border-bottom:4px solid #C9A86A}
+header h1{margin:4px 0;font-size:28px} header p{margin:2px;color:#C9A86A;font-weight:700}
+nav{display:flex;background:#111;padding:8px;gap:6px;position:sticky;top:0;z-index:10}
+nav button{flex:1;border:0;background:transparent;color:#aaa;padding:10px 2px;border-radius:10px;font-family:Tahoma;font-weight:800}
+nav button.active{background:#3a2a00;color:#C9A86A}
+main{padding:14px;max-width:520px;margin:auto;padding-bottom:90px}
+.card{background:#fff;border-radius:14px;padding:14px;margin:8px 0;box-shadow:0 2px 8px #0001;border-top:4px solid #0E7C7B}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{width:100%;border:0;border-radius:14px;padding:15px;font-family:Tahoma;font-weight:900;font-size:15px;color:#fff;margin-top:10px;cursor:pointer}
+input,select,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin:6px 0;font-family:Tahoma}
+.row{display:flex;gap:8px} .small{flex:1;background:#fff;border:1px solid #ddd;border-radius:12px;padding:12px;text-align:center;font-weight:800}
+.bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;border-top:1px solid #ddd;padding:10px;max-width:520px;margin:auto}
+.bottom button{flex:1;border:0;background:transparent;font-family:Tahoma;font-weight:800;color:#0F2A4D}
+.bottom button.active{color:#C9A86A}
+.hidden{display:none} .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#0F2A4D;color:#fff;padding:10px 16px;border-radius:20px;display:none;z-index:99}
+.bar{height:18px;background:#0E7C7B;border-radius:6px;margin:6px 0}
+</style>
+</head>
+<body>
+<header><div style="width:56px;height:56px;background:#fff;border:3px solid #C9A86A;border-radius:50%;margin:auto;display:flex;align-items:center;justify-content:center;color:#0E7C7B;font-size:30px;font-weight:900">∞</div><h1>حسابانه</h1><p id="date"></p><div style="color:#DCE6F2;font-size:12px">فروشگاه من • ساخته شده توسط VPCDR</div></header>
+<nav id="topnav"></nav>
+<main>
+<section id="s-home">
+<h3>خلاصه امروز</h3><div class="grid"><div class="card">فروش امروز<br><b>۰ تومان</b></div><div class="card">خرید امروز<br><b>۰ تومان</b></div><div class="card">بدهکاران<br><b>۰ تومان</b></div><div class="card">موجودی صندوق<br><b>۰ تومان</b></div></div>
+<button class="btn" style="background:#0F2A4D" onclick="go('invoice')">＋ فاکتور فروش جدید</button>
+<button class="btn" style="background:#0E7C7B" onclick="go('purchase')">＋ فاکتور خرید جدید</button>
+<div class="row"><div class="small" onclick="go('bank')">دریافت وجه</div><div class="small" onclick="go('bank')">پرداخت وجه</div></div>
+<div class="card"><b>نمودار فروش ۷ روز</b><div class="bar" style="width:30%"></div><div class="bar" style="width:50%"></div><div class="bar" style="width:80%"></div><div class="bar" style="width:40%"></div></div>
+<p style="text-align:center;color:#888;font-size:12px">حسابانه - ساخته شده توسط VPCDR</p>
+</section>
+<section id="s-invoice" class="hidden"><h3>فاکتور فروش جدید - شماره ۱۰۲۴</h3><input placeholder="نام مشتری"><input placeholder="نام کالا / شرح کالا" id="itemName"><input placeholder="مبلغ (تومان)" id="itemPrice" type="number"><div class="row"><input placeholder="تخفیف % یا مبلغ" id="disc"><input placeholder="مالیات %" value="10" id="tax"></div><button class="btn" style="background:#0F2A4D" onclick="calc()">محاسبه مبلغ نهایی</button><div class="card" id="total">مبلغ نهایی: ۰ تومان</div><button class="btn" style="background:#0E7C7B" onclick="toast('فاکتور ثبت شد')">ثبت فاکتور</button></section>
+<section id="s-purchase" class="hidden"><h3>فاکتور خرید جدید</h3><input placeholder="نام تامین‌کننده"><input placeholder="نام کالا"><input placeholder="مبلغ خرید" type="number"><button class="btn" style="background:#0F2A4D" onclick="toast('خرید ثبت شد و موجودی بالا رفت')">ثبت خرید</button></section>
+<section id="s-customers" class="hidden"><h3>افزودن مشتری</h3><input placeholder="نام و نام خانوادگی *"><input placeholder="موبایل *"><input placeholder="شماره محل کار"><input placeholder="ایمیل"><input placeholder="آدرس"><input placeholder="شماره کارت"><input placeholder="شماره شبا IR..."><input placeholder="آیدی تلگرام"><input placeholder="آیدی اینستاگرام"><textarea placeholder="یادداشت"></textarea><button class="btn" style="background:#0F2A4D" onclick="toast('مشتری ذخیره شد')">ذخیره مشتری</button></section>
+<section id="s-products" class="hidden"><h3>کالاها و خدمات</h3><div class="row"><button class="btn" style="background:#0F2A4D" onclick="toast('فرم کالا باز شد')">افزودن کالا</button><button class="btn" style="background:#0E7C7B" onclick="toast('فرم خدمت باز شد')">افزودن خدمت</button></div><div class="card">برنج هاشمی - ۱,۲۵۰,۰۰۰ تومان - موجودی: ۲۰</div><div class="card">روغن ۵ لیتری - ۸۹۰,۰۰۰ تومان - موجودی: ۱۲</div></section>
+<section id="s-bank" class="hidden"><h3>بانک و صندوق + چک</h3><div class="card">صندوق نقدی: ۰ تومان</div><div class="card">بانک ملی: ۰ تومان - شبا: IR...</div><div class="card">چک دریافتی: ۲ چک - سررسید ۳ روز آینده</div><button class="btn" style="background:#0F2A4D" onclick="toast('واریز ثبت شد')">ثبت واریز / دریافت وجه</button><button class="btn" style="background:#0E7C7B" onclick="toast('پرداخت ثبت شد')">ثبت برداشت / پرداخت وجه</button></section>
+<section id="s-profile" class="hidden"><h3>پروفایل فروشگاه</h3><input placeholder="نام فروشگاه"><input placeholder="نام مالک"><input placeholder="موبایل"><input placeholder="کد ملی"><input placeholder="کد اقتصادی"><input placeholder="آدرس"><input placeholder="شماره کارت"><input placeholder="شماره شبا"><p>لوگو / عکس پرسنلی / مهر: <input type="file"></p><button class="btn" style="background:#0F2A4D" onclick="toast('پروفایل ذخیره شد')">ذخیره پروفایل</button></section>
+<section id="s-settings" class="hidden"><h3>تنظیمات</h3><label>واحد پول</label><select><option>تومان</option><option>ریال</option><option>دلار</option></select><label>نرخ دلار (تومان)</label><input value="265800"><label>پوسته</label><select onchange="setTheme(this.value)"><option value="lux">لوکس - سرمه‌ای طلایی</option><option value="modern">مدرن روشن</option><option value="classic">کلاسیک</option><option value="trad">سنتی / بازار</option><option value="dark">تیره</option><option value="min">مینیمال</option></select><button class="btn" style="background:#0F2A4D" onclick="toast('تنظیمات ذخیره شد')">ذخیره</button></section>
+</main>
+<div class="bottom" id="bottomnav"></div>
+<div class="toast" id="toast"></div>
+<script>
+const tabs=[['home','خانه'],['invoice','فاکتور'],['customers','مشتریان'],['products','کالا'],['more','بیشتر']];
+let cur='home';
+function renderNav(){let h='';tabs.forEach(t=>{h+=`<button class="${cur===t[0]||(cur==='purchase'||cur==='bank'||cur==='profile'||cur==='settings')&&t[0]==='more'?'active':''}" onclick="go('${t[0]}')">${t[1]}</button>`});document.getElementById('topnav').innerHTML=h;document.getElementById('bottomnav').innerHTML=h;}
+function go(id){if(id==='more'){go('profile');return;} cur=id;document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));let map={home:'s-home',invoice:'s-invoice',purchase:'s-purchase',customers:'s-customers',products:'s-products',bank:'s-bank',profile:'s-profile',settings:'s-settings'};let el=document.getElementById(map[id]||'s-home');if(el)el.classList.remove('hidden');renderNav();window.scrollTo(0,0);}
+function toast(m){let t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2000);}
+function calc(){let p=Number(document.getElementById('itemPrice').value||0);let d=Number(document.getElementById('disc').value||0);let tx=Number(document.getElementById('tax').value||10);let after=p-d;let total=after+after*tx/100;document.getElementById('total').textContent='مبلغ نهایی: '+total.toLocaleString('fa-IR')+' تومان';}
+function setTheme(v){let b=document.body;if(v==='dark'){b.style.background='#0F172A';b.style.color='#fff'}else if(v==='trad'){b.style.background='#FFF8E1'}else if(v==='modern'){b.style.background='#fff'}else{b.style.background='#F5F7FA';b.style.color='#1A2332'}toast('پوسته عوض شد');}
+document.getElementById('date').textContent=new Date().toLocaleDateString('fa-IR')+' | '+new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'});
+renderNav();
+</script>
+</body></html>
