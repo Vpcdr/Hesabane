@@ -44,7 +44,7 @@ input,select,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radiu
 <div class="row"><div class="small" onclick="go('money')">⬇ دریافت وجه</div><div class="small" onclick="go('money')">⬆ پرداخت وجه</div></div>
 <input placeholder="🔍 جستجو در همه..." oninput="searchAll(this.value)"><div id="searchRes"></div>
 <div class="card"><b>📊 نمودار فروش ۷ روز</b><div style="height:16px;background:#0E7C7B;border-radius:6px;margin:6px 0;width:30%"></div><div style="height:16px;background:#0E7C7B;border-radius:6px;margin:6px 0;width:60%"></div><div style="height:16px;background:#0E7C7B;border-radius:6px;margin:6px 0;width:85%"></div></div>
-<p style="text-align:center;color:#888;font-size:12px">حسابانه نسخه ۱.۶ - VPCDR</p></section>
+<p style="text-align:center;color:#888;font-size:12px">حسابانه نسخه ۱.۷ - VPCDR</p></section>
 
 <section id="s-invoice" class="hidden"><h3>🧾 فاکتورها</h3>
 <div class="sub"><button id="tabSell" class="on" onclick="switchInv('sell')">فاکتور فروش</button><button id="tabBuy" onclick="switchInv('buy')">فاکتور خرید</button><button id="tabArc" onclick="switchInv('arc')">📂 بایگانی فاکتورها</button></div><div id="boxArc" class="hidden"><h4>📂 فاکتورهای وارد شده - طبقه‌بندی سال و ماه شمسی</h4><div style="background:#FFF8E1;padding:10px;border-radius:10px">شماره‌گذاری از <b>۲۰۰</b> شروع می‌شود و پشت سر هم ادامه دارد. فاکتور بعدی: <b id="nextInvNo">۲۰۰</b></div><div id="arcList"></div></div>
@@ -108,6 +108,7 @@ input,select,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radiu
 <button class="btn btnG" onclick="closeCard()">بستن</button><small>برای ذخیره عکس: دکمه ذخیره رو بزن، عکس دانلود می‌شود. برای چاپ حرارتی: دکمه چاپ رو بزن.</small></div></div>
 <div class="bottom" id="bottomnav"></div><div class="toast" id="toast"></div>
 <script>
+if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){r=Math.min(r,w/2,h/2);this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();return this;};}
 let DB=JSON.parse(localStorage.getItem('hesabane_v14')||'{"customers":[],"products":[{"name":"برنج هاشمی","price":1250000,"type":"کالا"},{"name":"روغن ۵ لیتری","price":890000,"type":"کالا"}],"invoices":[],"profile":{"store":"فروشگاه من","owner":"","mobile":"","type":"بازرگانی"},"currency":"toman","usd":265800}');
 let editCustIdx=-1;
 function save(){localStorage.setItem('hesabane_v14',JSON.stringify(DB));}
@@ -211,17 +212,71 @@ function showCustomerCard(i){
   openCard('🖼️ کارت تصویری مشتری: '+c.name, {name:c.name, owner:c.name, mobile:c.mobile, tel:c.job, addr:c.addr, card:c.card, sheba:c.sheba, national:'-', eco:'-', email:c.email, tg:c.tg, ig:c.ig, type:c.type, logo:document.getElementById('cLogoPrev')?.src, person:document.getElementById('cPersonPrev')?.src, stamp:document.getElementById('cStampPrev')?.src});
 }
 function downloadCard(){
-  let el=document.getElementById('printCard'); if(!el){toast('اول کارت را باز کن');return;}
-  // Clone exact card, fix size for export - captures EXACTLY what you see
-  let clone=el.cloneNode(true); clone.style.width='520px'; clone.style.margin='0';
-  let xml=new XMLSerializer().serializeToString(clone);
-  let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="560" height="720"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">${xml}</div></foreignObject></svg>`;
-  let img=new Image(); img.onload=function(){
-    let cv=document.createElement('canvas'); cv.width=560; cv.height=720; let ctx=cv.getContext('2d');
-    ctx.fillStyle='#F5F7FA'; ctx.fillRect(0,0,560,720); ctx.drawImage(img,0,0,560,720);
-    let a=document.createElement('a'); a.download=(currentCardData?.name||'hesabane')+'-card.png'; a.href=cv.toDataURL('image/png'); a.click(); toast('عکس دقیق کارت ذخیره شد ✅');
-  }; img.onerror=function(){toast('برای ذخیره عکس، دوباره تلاش کن');};
-  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+  let d=currentCardData; if(!d){toast('اول کارت را باز کن');return;}
+  toast('در حال ساخت عکس زیبا...');
+  // Load the 3 images first, then paint - so nothing breaks
+  function loadImg(src){return new Promise(res=>{if(!src||src.length<20){res(null);return;} let im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src;});}
+  Promise.all([loadImg(d.logo), loadImg(d.person), loadImg(d.stamp), loadImg('logo.png')]).then(([logoIm, personIm, stampIm, appLogo])=>{
+    let W=1080, H=1380;
+    let cv=document.createElement('canvas'); cv.width=W; cv.height=H; let ctx=cv.getContext('2d');
+    // Background - exact luxe gradient
+    let grad=ctx.createLinearGradient(0,0,W,H); grad.addColorStop(0,'#0F2A4D'); grad.addColorStop(0.55,'#143A5A'); grad.addColorStop(1,'#0E7C7B'); ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+    // Gold border
+    ctx.strokeStyle='#C9A86A'; ctx.lineWidth=8; ctx.strokeRect(18,18,W-36,H-36);
+    ctx.strokeStyle='rgba(201,168,106,0.35)'; ctx.lineWidth=2; ctx.strokeRect(34,34,W-68,H-68);
+    // Top: logo circle on left, name on right (RTL)
+    ctx.save(); ctx.beginPath(); ctx.arc(150,150,95,0,Math.PI*2); ctx.clip(); ctx.fillStyle='#fff'; ctx.fillRect(55,55,190,190);
+    if(appLogo){try{ctx.drawImage(appLogo,55,55,190,190);}catch(e){}} ctx.restore();
+    ctx.strokeStyle='#C9A86A'; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(150,150,98,0,Math.PI*2); ctx.stroke();
+    ctx.textAlign='right'; ctx.fillStyle='#C9A86A'; ctx.font='900 62px Tahoma, sans-serif'; ctx.fillText(d.name||'', W-60, 130);
+    ctx.fillStyle='#DCE6F2'; ctx.font='32px Tahoma, sans-serif'; ctx.fillText((d.type||'بازرگانی')+'  •  حسابانه', W-60, 185);
+    ctx.fillStyle='#C9A86A'; ctx.fillRect(60,240,W-120,3);
+    // Rows - clean, no empty lines: only show fields that have value
+    let rows=[];
+    if(d.owner && d.owner!==d.name) rows.push(['مالک', d.owner]);
+    rows.push(['موبایل', d.mobile||'-']);
+    if(d.tel) rows.push(['تلفن ثابت', d.tel]);
+    if(d.addr) rows.push(['آدرس', d.addr]);
+    if(d.card) rows.push(['شماره کارت', d.card]);
+    if(d.sheba && d.sheba!=='-') rows.push(['شماره شبا', d.sheba]);
+    if(d.national && d.national!=='-') rows.push(['کد ملی', d.national]);
+    if(d.eco && d.eco!=='-') rows.push(['کد اقتصادی', d.eco]);
+    if(d.email && d.email!=='-') rows.push(['ایمیل', d.email]);
+    if(d.tg) rows.push(['تلگرام', d.tg]);
+    if(d.ig) rows.push(['اینستاگرام', d.ig]);
+    // Invoice extra
+    if(d.invNo) rows.push(['شماره فاکتور', String(d.invNo)]);
+    if(d.date) rows.push(['تاریخ', d.date]);
+    if(d.customer) rows.push(['مشتری', d.customer]);
+    if(d.item) rows.push(['کالا', d.item]);
+    if(d.total) rows.push(['مبلغ نهایی', d.total]);
+    ctx.textAlign='right';
+    let y=320;
+    rows.forEach(([label, val])=>{
+      // white pill row
+      ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.roundRect(60, y-38, W-120, 58, 16); ctx.fill();
+      ctx.fillStyle='#C9A86A'; ctx.font='700 28px Tahoma, sans-serif'; ctx.fillText(label+' :', W-90, y);
+      ctx.fillStyle='#FFFFFF'; ctx.font='30px Tahoma, sans-serif';
+      // truncate long values
+      let v=String(val); if(v.length>42) v=v.slice(0,42)+'...';
+      // measure to avoid overlap with label
+      ctx.fillText(v, W-90-180, y);
+      y+=72;
+    });
+    // 3 images at bottom - always in 3 equal boxes, no broken icons
+    let boxY = H-360, boxW=(W-120-40)/3, boxH=260;
+    let titles=['لوگو','عکس پرسنلی','مهر'];
+    let imgs=[logoIm, personIm, stampIm];
+    for(let i=0;i<3;i++){
+      let x=60 + i*(boxW+20);
+      ctx.fillStyle='#FFFFFF'; ctx.beginPath(); ctx.roundRect(x, boxY, boxW, boxH, 20); ctx.fill();
+      ctx.fillStyle='#0F2A4D'; ctx.font='700 26px Tahoma, sans-serif'; ctx.textAlign='center'; ctx.fillText(titles[i], x+boxW/2, boxY+38);
+      if(imgs[i]){ try{ ctx.save(); ctx.beginPath(); ctx.roundRect(x+16, boxY+52, boxW-32, boxH-68, 12); ctx.clip(); ctx.drawImage(imgs[i], x+16, boxY+52, boxW-32, boxH-68); ctx.restore(); }catch(e){} }
+      else { ctx.fillStyle='#E8E8E8'; ctx.beginPath(); ctx.roundRect(x+16, boxY+52, boxW-32, boxH-68, 12); ctx.fill(); ctx.fillStyle='#999'; ctx.font='28px Tahoma'; ctx.fillText('بدون عکس', x+boxW/2, boxY+170); }
+    }
+    ctx.textAlign='center'; ctx.fillStyle='#C9A86A'; ctx.font='700 26px Tahoma, sans-serif'; ctx.fillText('حسابانه  •  ساخته شده توسط VPCDR', W/2, H-55);
+    let a=document.createElement('a'); a.download=(d.name||'hesabane')+'-card.png'; a.href=cv.toDataURL('image/png'); a.click(); toast('عکس زیبا ذخیره شد ✅');
+  });
 }
 function renderCustomers(q=''){let l=DB.customers.map((c,i)=>({...c,idx:i})).filter(c=>!q||c.name.includes(q));document.getElementById('custList').innerHTML=l.length?l.map(c=>`<div class="card">👤 <b>${c.name}</b> - ${c.mobile}<br><small>نوع: ${c.type||'بازرگانی'} ${c.addr?'| '+c.addr:''}</small><br><button class="btnSmall" onclick="editCustomer(${c.idx})">✏ ویرایش</button><button class="btnSmall" onclick="delCustomer(${c.idx})">🗑 حذف</button><button class="btnSmall" onclick="toast('صورتحساب آماده شد')">🧾 صورتحساب</button><button class="btnSmall" onclick="showCustomerCard(${c.idx})">🖼 عکس</button></button></div>`).join(''):'<div class="card">هنوز مشتری نداری</div>';document.getElementById('invCust').innerHTML='<option>انتخاب مشتری</option>'+DB.customers.map(c=>`<option>${c.name}</option>`).join('');}
 function renderProducts(q=''){let l=DB.products.filter(p=>!q||p.name.includes(q));document.getElementById('prodList').innerHTML=l.map(p=>`<div class="card">${p.name} - ${fmt(p.price)} - ${p.type}</div>`).join('');}
